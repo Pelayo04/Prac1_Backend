@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión de Alumnos</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="text-center mb-4">Gestión de Alumnos</h1>
+
+    <!-- Formulario de inserción / edición -->
+    <div class="card p-4 shadow-sm mb-4">
+      <h4 id="form-title">Agregar alumno</h4>
+      <form id="alumnoForm">
+        <input type="hidden" id="alumnoId" /> <!-- ID oculto para edición -->
+        <div class="mb-3">
+          <label for="nombre" class="form-label">Nombre</label>
+          <input type="text" id="nombre" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label for="edad" class="form-label">Edad</label>
+          <input type="number" id="edad" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label for="curso" class="form-label">Curso</label>
+          <input type="text" id="curso" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary" id="btnSubmit">Agregar</button>
+        <button type="button" class="btn btn-secondary d-none" id="btnCancel">Cancelar</button>
+      </form>
+    </div>
+
+    <!-- Lista de alumnos -->
+    <div class="card p-4 shadow-sm">
+      <h4>Lista de alumnos</h4>
+      <table class="table table-striped mt-3" id="tablaAlumnos">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Edad</th>
+            <th>Curso</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:3000/api/alumnos";
+    const form = document.getElementById("alumnoForm");
+    const tabla = document.querySelector("#tablaAlumnos tbody");
+    const btnSubmit = document.getElementById("btnSubmit");
+    const btnCancel = document.getElementById("btnCancel");
+    const formTitle = document.getElementById("form-title");
+    const idInput = document.getElementById("alumnoId");
+
+    document.addEventListener("DOMContentLoaded", obtenerAlumnos);
+    form.addEventListener("submit", guardarAlumno);
+    btnCancel.addEventListener("click", cancelarEdicion);
+
+    // 🟢 Obtener lista de alumnos (GET)
+    async function obtenerAlumnos() {
+      try {
+        const res = await fetch(API_URL);
+        const alumnos = await res.json();
+        tabla.innerHTML = "";
+
+        alumnos.forEach(a => {
+          const fila = `
+            <tr>
+              <td>${a.id}</td>
+              <td>${a.nombre}</td>
+              <td>${a.edad}</td>
+              <td>${a.curso ?? ""}</td>
+              <td>
+                <button class="btn btn-sm btn-warning me-1" onclick="editarAlumno(${a.id}, '${a.nombre}', ${a.edad}, '${a.curso ?? ""}')">Editar</button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarAlumno(${a.id})">Eliminar</button>
+              </td>
+            </tr>`;
+          tabla.insertAdjacentHTML("beforeend", fila);
+        });
+      } catch (err) {
+        console.error(err);
+        tabla.innerHTML = "<tr><td colspan='5'>Error al cargar los alumnos.</td></tr>";
+      }
+    }
+
+    // 🟡 Guardar o actualizar alumno
+    async function guardarAlumno(e) {
+      e.preventDefault();
+
+      const nombre = document.getElementById("nombre").value.trim();
+      const edad = document.getElementById("edad").value.trim();
+      const curso = document.getElementById("curso").value.trim();
+      const id = idInput.value;
+
+      if (!nombre || !edad) {
+        alert("Por favor ingresa nombre y edad.");
+        return;
+      }
+
+      try {
+        const method = id ? "PUT" : "POST";
+        const url = id ? `${API_URL}/${id}` : API_URL;
+
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, edad, curso })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert(data.mensaje);
+          form.reset();
+          idInput.value = "";
+          btnSubmit.textContent = "Agregar";
+          btnCancel.classList.add("d-none");
+          formTitle.textContent = "Agregar alumno";
+          obtenerAlumnos();
+        } else {
+          alert("Error: " + (data.error || data.mensaje));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error de conexión con el servidor");
+      }
+    }
+
+    // 🔵 Editar alumno
+    function editarAlumno(id, nombre, edad, curso) {
+      idInput.value = id;
+      document.getElementById("nombre").value = nombre;
+      document.getElementById("edad").value = edad;
+      document.getElementById("curso").value = curso;
+      btnSubmit.textContent = "Actualizar";
+      btnCancel.classList.remove("d-none");
+      formTitle.textContent = "Editar alumno";
+    }
+
+    // 🔴 Eliminar alumno
+    async function eliminarAlumno(id) {
+      if (!confirm("¿Seguro que deseas eliminar este alumno?")) return;
+
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        const data = await res.json();
+
+        if (res.ok) {
+          alert(data.mensaje);
+          obtenerAlumnos();
+        } else {
+          alert("Error: " + (data.error || data.mensaje));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error al eliminar el alumno");
+      }
+    }
+
+    // 🔙 Cancelar edición
+    function cancelarEdicion() {
+      form.reset();
+      idInput.value = "";
+      btnSubmit.textContent = "Agregar";
+      btnCancel.classList.add("d-none");
+      formTitle.textContent = "Agregar alumno";
+    }
+  </script>
+</body>
+</html>
